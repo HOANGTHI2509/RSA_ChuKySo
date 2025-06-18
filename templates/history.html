@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lịch sử - File Transfer RSA</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="dashboard">
+        <nav class="navbar">
+            <div class="nav-brand">
+                <h2>📋 Lịch sử truyền file</h2>
+            </div>
+            <div class="nav-user">
+                <a href="/dashboard" class="btn btn-secondary">🏠 Quay lại Dashboard</a>
+                <a href="/logout" class="btn btn-secondary">Đăng xuất</a>
+            </div>
+        </nav>
+        
+        <div class="dashboard-content">
+            <div class="sidebar">
+                <div class="menu">
+                    <a href="/dashboard" class="menu-item">
+                        <span>🏠</span> Trang chủ
+                    </a>
+                    <a href="/upload" class="menu-item">
+                        <span>📤</span> Gửi file
+                    </a>
+                    <a href="/history" class="menu-item active">
+                        <span>📋</span> Lịch sử
+                    </a>
+                    {% if is_admin %}
+                    <a href="/admin" class="menu-item">
+                        <span>⚙️</span> Quản trị
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="main-content">
+                <div class="history-header">
+                    <h1>📋 Lịch sử truyền file</h1>
+                    {% if is_admin %}
+                        <p>Xem tất cả lịch sử file trong hệ thống</p>
+                    {% else %}
+                        <p>Lịch sử file bạn đã gửi và nhận</p>
+                    {% endif %}
+                </div>
+                
+                <div class="history-content">
+                    {% if files %}
+                    <div class="table-container">
+                        <table class="history-table">
+                            <thead>
+                                <tr>
+                                    <th>File</th>
+                                    <th>Người gửi</th>
+                                    <th>Người nhận</th>
+                                    <th>Thời gian gửi</th>
+                                    <th>Trạng thái</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for file in files %}
+                                <tr>
+                                    <td>
+                                        <div class="file-cell">
+                                            <span class="file-icon">📄</span>
+                                            <div class="file-info">
+                                                <div class="file-name">{{ file.filename }}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="user-badge">{{ file.sender }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="user-badge">{{ file.receiver }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="timestamp">
+                                            <div>{{ file.timestamp[:10] }}</div>
+                                            <small>{{ file.timestamp[11:19] }}</small>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if file.verified %}
+                                            <span class="status verified">✅ Đã xác minh</span>
+                                            {% if file.verified_at %}
+                                            <small class="verify-time">{{ file.verified_at[:19] }}</small>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="status pending">⏳ Chưa xác minh</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if file.verified or is_admin %}
+                                        <a href="/api/download/{{ file.id }}" class="btn btn-sm btn-primary">
+                                            📥 Tải xuống
+                                        </a>
+                                        {% else %}
+                                        <span class="text-muted">Chưa thể tải</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="empty-state">
+                        <div class="empty-icon">📭</div>
+                        <h3>Chưa có lịch sử</h3>
+                        <p>Bạn chưa gửi hoặc nhận file nào</p>
+                        <a href="/upload" class="btn btn-primary">Gửi file đầu tiên</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
+s

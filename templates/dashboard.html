@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - File Transfer RSA</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        .verify-info {
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .verify-info h4 {
+            color: #495057;
+            margin-bottom: 12px;
+        }
+
+        .verify-info ol {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .verify-info li {
+            margin-bottom: 8px;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <nav class="navbar">
+            <div class="nav-brand">
+                <h2>🔐 File Transfer RSA</h2>
+            </div>
+            <div class="nav-user">
+                <span>Xin chào, <strong>{{ username }}</strong></span>
+                {% if is_admin %}
+                    <span class="admin-badge">Admin</span>
+                {% endif %}
+                <a href="/logout" class="btn btn-secondary">Đăng xuất</a>
+            </div>
+        </nav>
+        
+        <div class="dashboard-content">
+            <div class="sidebar">
+                <div class="menu">
+                    <a href="/dashboard" class="menu-item active">
+                        <span>🏠</span> Trang chủ
+                    </a>
+                    <a href="/upload" class="menu-item">
+                        <span>📤</span> Gửi file
+                    </a>
+                    <a href="/history" class="menu-item">
+                        <span>📋</span> Lịch sử
+                    </a>
+                    {% if is_admin %}
+                    <a href="/admin" class="menu-item">
+                        <span>⚙️</span> Quản trị
+                    </a>
+                    {% endif %}
+                </div>
+                
+                <div class="online-users">
+                    <h3>👥 Người dùng online</h3>
+                    <div id="onlineUsersList">
+                        {% for user in online_users %}
+                        <div class="user-item online">
+                            <span class="status-dot"></span>
+                            {{ user }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="main-content">
+                <div class="welcome-section">
+                    <h1>Chào mừng đến với File Transfer RSA</h1>
+                    <p>Hệ thống truyền file an toàn với chữ ký số RSA</p>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">📤</div>
+                        <div class="stat-info">
+                            <h3>Gửi file</h3>
+                            <p>Gửi file với chữ ký số</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">📥</div>
+                        <div class="stat-info">
+                            <h3>Nhận file</h3>
+                            <p>Xác minh và tải file</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">🔐</div>
+                        <div class="stat-info">
+                            <h3>Bảo mật</h3>
+                            <p>Chữ ký RSA 2048-bit</p>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if received_files %}
+                <div class="received-files">
+                    <h2>📥 File đã nhận</h2>
+                    <div class="files-grid">
+                        {% for file in received_files %}
+                        <div class="file-card">
+                            <div class="file-icon">📄</div>
+                            <div class="file-info">
+                                <h4>{{ file.filename }}</h4>
+                                <p>Từ: <strong>{{ file.sender }}</strong></p>
+                                <p>Thời gian: {{ file.timestamp[:19] }}</p>
+                                {% if file.verified %}
+                                    <span class="status verified">✅ Đã xác minh</span>
+                                {% else %}
+                                    <span class="status pending">⏳ Chưa xác minh</span>
+                                {% endif %}
+                            </div>
+                            <div class="file-actions">
+                                {% if not file.verified %}
+                                <button class="btn btn-primary" onclick="verifyFile('{{ file.id }}')">
+                                    Xác minh
+                                </button>
+                                {% else %}
+                                <a href="/api/download/{{ file.id }}" class="btn btn-success">
+                                    Tải xuống
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal xác minh file -->
+    <div id="verifyModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🔐 Xác minh chữ ký file</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="verify-info">
+                    <h4>📋 Quy trình xác minh:</h4>
+                    <ol>
+                        <li>Bạn nhập khóa cá nhân để xác thực danh tính</li>
+                        <li>Hệ thống sử dụng <strong>public key của người gửi</strong> để kiểm tra chữ ký</li>
+                        <li>Nếu chữ ký hợp lệ, file được đảm bảo từ người gửi và không bị thay đổi</li>
+                    </ol>
+                </div>
+                <div class="form-group">
+                    <label for="verifyKey">Nhập khóa cá nhân của bạn:</label>
+                    <input type="password" id="verifyKey" placeholder="Khóa cá nhân để xác thực danh tính">
+                    <small>Khóa này chỉ để xác thực bạn là người nhận hợp lệ</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
+                <button class="btn btn-primary" onclick="confirmVerify()">Xác minh chữ ký</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="message" class="message"></div>
+    
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        const socket = io();
+        let currentFileId = null;
+        
+        socket.on('connect', function() {
+            console.log('Connected to server');
+        });
+        
+        socket.on('user_online', function(data) {
+            updateOnlineUsers();
+        });
+        
+        socket.on('user_offline', function(data) {
+            updateOnlineUsers();
+        });
+        
+        socket.on('online_users', function(data) {
+            updateOnlineUsersList(data.users);
+        });
+        
+        socket.on('new_file', function(data) {
+            showMessage(`Bạn có file mới từ ${data.sender}: ${data.filename}`, 'info');
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        });
+        
+        function updateOnlineUsersList(users) {
+            const container = document.getElementById('onlineUsersList');
+            container.innerHTML = '';
+            
+            users.forEach(user => {
+                const userDiv = document.createElement('div');
+                userDiv.className = 'user-item online';
+                userDiv.innerHTML = `
+                    <span class="status-dot"></span>
+                    ${user}
+                `;
+                container.appendChild(userDiv);
+            });
+        }
+        
+        function verifyFile(fileId) {
+            currentFileId = fileId;
+            document.getElementById('verifyModal').style.display = 'block';
+        }
+        
+        function closeModal() {
+            document.getElementById('verifyModal').style.display = 'none';
+            document.getElementById('verifyKey').value = '';
+            currentFileId = null;
+        }
+        
+        async function confirmVerify() {
+            const userKey = document.getElementById('verifyKey').value;
+            
+            if (!userKey) {
+                showMessage('Vui lòng nhập khóa cá nhân', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        file_id: currentFileId,
+                        user_key: userKey
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage(result.message, 'success');
+                    closeModal();
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    showMessage(result.message, 'error');
+                }
+            } catch (error) {
+                showMessage('Lỗi kết nối', 'error');
+            }
+        }
+        
+        // Đóng modal khi click outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('verifyModal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+        
+        // Đóng modal khi click nút X
+        document.querySelector('.close').onclick = function() {
+            closeModal();
+        }
+    </script>
+</body>
+</html>

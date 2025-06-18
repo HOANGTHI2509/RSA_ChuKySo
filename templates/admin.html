@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - File Transfer RSA</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+</head>
+<body>
+    <div class="dashboard">
+        <nav class="navbar">
+            <div class="nav-brand">
+                <h2>⚙️ Quản trị hệ thống</h2>
+            </div>
+            <div class="nav-user">
+                <a href="/dashboard" class="btn btn-secondary">🏠 Quay lại Dashboard</a>
+                <a href="/logout" class="btn btn-secondary">Đăng xuất</a>
+            </div>
+        </nav>
+        
+        <div class="dashboard-content">
+            <div class="sidebar">
+                <div class="menu">
+                    <a href="/dashboard" class="menu-item">
+                        <span>🏠</span> Trang chủ
+                    </a>
+                    <a href="/upload" class="menu-item">
+                        <span>📤</span> Gửi file
+                    </a>
+                    <a href="/history" class="menu-item">
+                        <span>📋</span> Lịch sử
+                    </a>
+                    <a href="/admin" class="menu-item active">
+                        <span>⚙️</span> Quản trị
+                    </a>
+                </div>
+                
+                <div class="online-users">
+                    <h3>👥 Người dùng online</h3>
+                    <div id="onlineUsersList">
+                        {% for user in online_users %}
+                        <div class="user-item online">
+                            <span class="status-dot"></span>
+                            {{ user }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="main-content">
+                <div class="admin-header">
+                    <h1>🛠️ Bảng điều khiển Admin</h1>
+                    <p>Quản lý toàn bộ hệ thống file transfer</p>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-info">
+                            <h3>{{ files|length }}</h3>
+                            <p>Tổng số file</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-info">
+                            <h3>{{ online_users|length }}</h3>
+                            <p>Người dùng online</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-info">
+                            <h3>{{ files.values()|selectattr('verified')|list|length }}</h3>
+                            <p>File đã xác minh</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="admin-section">
+                    <h2>📋 Tất cả file trong hệ thống</h2>
+                    <div class="table-container">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>File</th>
+                                    <th>Người gửi</th>
+                                    <th>Người nhận</th>
+                                    <th>Thời gian</th>
+                                    <th>Trạng thái</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for file_id, file in files.items() %}
+                                <tr>
+                                    <td>
+                                        <div class="file-cell">
+                                            <span class="file-icon">📄</span>
+                                            {{ file.filename }}
+                                        </div>
+                                    </td>
+                                    <td>{{ file.sender }}</td>
+                                    <td>{{ file.receiver }}</td>
+                                    <td>{{ file.timestamp[:19] }}</td>
+                                    <td>
+                                        {% if file.verified %}
+                                            <span class="status verified">✅ Đã xác minh</span>
+                                        {% else %}
+                                            <span class="status pending">⏳ Chưa xác minh</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="/api/download/{{ file_id }}" class="btn btn-sm btn-primary">
+                                            Tải xuống
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        const socket = io();
+        
+        socket.on('connect', function() {
+            console.log('Connected to server');
+        });
+        
+        socket.on('online_users', function(data) {
+            updateOnlineUsersList(data.users);
+        });
+        
+        function updateOnlineUsersList(users) {
+            const container = document.getElementById('onlineUsersList');
+            container.innerHTML = '';
+            
+            users.forEach(user => {
+                const userDiv = document.createElement('div');
+                userDiv.className = 'user-item online';
+                userDiv.innerHTML = `
+                    <span class="status-dot"></span>
+                    ${user}
+                `;
+                container.appendChild(userDiv);
+            });
+        }
+    </script>
+</body>
+</html>

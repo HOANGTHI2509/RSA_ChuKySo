@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng ký - File Transfer RSA</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="login-container">
+            <div class="login-header">
+                <h1>📝 Đăng ký tài khoản</h1>
+                <p>Tạo tài khoản mới để sử dụng dịch vụ</p>
+            </div>
+            
+            <form id="registerForm" class="login-form">
+                <div class="form-group">
+                    <label for="username">Tên đăng nhập</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Mật khẩu</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="user_key">Khóa cá nhân (không thể thay đổi sau này)</label>
+                    <input type="text" id="user_key" name="user_key" required placeholder="Nhập khóa bí mật của bạn">
+                    <small>Khóa này sẽ được sử dụng để xác thực khi gửi/nhận file</small>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Đăng ký</button>
+            </form>
+            
+            <div class="login-footer">
+                <p>Đã có tài khoản? <a href="/">Đăng nhập</a></p>
+            </div>
+            
+            <div id="message" class="message"></div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = {
+                username: formData.get('username'),
+                password: formData.get('password'),
+                user_key: formData.get('user_key')
+            };
+            
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage(result.message, 'success');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 2000);
+                } else {
+                    showMessage(result.message, 'error');
+                }
+            } catch (error) {
+                showMessage('Lỗi kết nối', 'error');
+            }
+        });
+    </script>
+</body>
+</html>

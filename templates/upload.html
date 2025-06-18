@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gửi file - File Transfer RSA</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="dashboard">
+        <nav class="navbar">
+            <div class="nav-brand">
+                <h2>📤 Gửi file</h2>
+            </div>
+            <div class="nav-user">
+                {% if is_admin %}
+                <a href="/admin" class="btn btn-secondary">⚙️ Quay lại Admin</a>
+                {% endif %}
+                <a href="/dashboard" class="btn btn-secondary">🏠 Quay lại Dashboard</a>
+                <a href="/logout" class="btn btn-secondary">Đăng xuất</a>
+            </div>
+        </nav>
+        
+        <div class="dashboard-content">
+            <div class="sidebar">
+                <div class="menu">
+                    <a href="/dashboard" class="menu-item">
+                        <span>🏠</span> Trang chủ
+                    </a>
+                    <a href="/upload" class="menu-item active">
+                        <span>📤</span> Gửi file
+                    </a>
+                    <a href="/history" class="menu-item">
+                        <span>📋</span> Lịch sử
+                    </a>
+                    {% if is_admin %}
+                    <a href="/admin" class="menu-item">
+                        <span>⚙️</span> Quản trị
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="main-content">
+                <div class="upload-header">
+                    <h1>📤 Gửi file với chữ ký số</h1>
+                    <p>File sẽ được ký bằng khóa RSA của bạn để đảm bảo tính toàn vẹn</p>
+                </div>
+                
+                <div class="upload-container">
+                    <form id="uploadForm" class="upload-form" enctype="multipart/form-data">
+                        <div class="form-group">
+                            <label for="file">Chọn file</label>
+                            <div class="file-input-container">
+                                <input type="file" id="file" name="file" required>
+                                <div class="file-input-display">
+                                    <span class="file-icon">📁</span>
+                                    <span class="file-text">Chọn file để gửi</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="receiver">Người nhận</label>
+                            <select id="receiver" name="receiver" required>
+                                <option value="">Chọn người nhận</option>
+                                {% for user in all_users %}
+                                    {% if user != current_user %}
+                                    <option value="{{ user }}">{{ user }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="user_key">Khóa cá nhân của bạn</label>
+                            <input type="password" id="user_key" name="user_key" required placeholder="Nhập khóa cá nhân để ký file">
+                            <small>Khóa này sẽ được sử dụng để tạo chữ ký số cho file</small>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary btn-large">
+                                <span class="btn-icon">🔐</span>
+                                Ký và gửi file
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <div class="upload-info">
+                        <h3>🔒 Quy trình bảo mật</h3>
+                        <div class="info-steps">
+                            <div class="step">
+                                <div class="step-number">1</div>
+                                <div class="step-content">
+                                    <h4>Chọn file</h4>
+                                    <p>File sẽ được tải lên server an toàn</p>
+                                </div>
+                            </div>
+                            <div class="step">
+                                <div class="step-number">2</div>
+                                <div class="step-content">
+                                    <h4>Tạo chữ ký</h4>
+                                    <p>File được ký bằng khóa RSA riêng của bạn</p>
+                                </div>
+                            </div>
+                            <div class="step">
+                                <div class="step-number">3</div>
+                                <div class="step-content">
+                                    <h4>Gửi thông báo</h4>
+                                    <p>Người nhận sẽ được thông báo về file mới</p>
+                                </div>
+                            </div>
+                            <div class="step">
+                                <div class="step-number">4</div>
+                                <div class="step-content">
+                                    <h4>Xác minh</h4>
+                                    <p>Người nhận xác minh chữ ký trước khi tải</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="message" class="message"></div>
+    
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        // Xử lý hiển thị file được chọn
+        document.getElementById('file').addEventListener('change', function(e) {
+            const fileDisplay = document.querySelector('.file-text');
+            if (e.target.files.length > 0) {
+                const fileName = e.target.files[0].name;
+                fileDisplay.textContent = fileName;
+                fileDisplay.parentElement.classList.add('file-selected');
+            } else {
+                fileDisplay.textContent = 'Chọn file để gửi';
+                fileDisplay.parentElement.classList.remove('file-selected');
+            }
+        });
+        
+        // Xử lý form upload
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            
+            // Disable button và hiển thị loading
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="btn-icon">⏳</span> Đang gửi...';
+            
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage(result.message, 'success');
+                    // Reset form
+                    e.target.reset();
+                    document.querySelector('.file-text').textContent = 'Chọn file để gửi';
+                    document.querySelector('.file-input-display').classList.remove('file-selected');
+                } else {
+                    showMessage(result.message, 'error');
+                }
+            } catch (error) {
+                showMessage('Lỗi kết nối: ' + error.message, 'error');
+            } finally {
+                // Enable button
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<span class="btn-icon">🔐</span> Ký và gửi file';
+            }
+        });
+    </script>
+</body>
+</html>
